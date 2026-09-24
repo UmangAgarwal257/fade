@@ -10,4 +10,3 @@ test-ledger
 .env.*
 keys/
 web/.next
-keys/
