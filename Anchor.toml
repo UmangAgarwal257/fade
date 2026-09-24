@@ -1,0 +1,21 @@
+[toolchain]
+package_manager = "yarn"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+fade = "86WQKVP5aG8EWaMQQhFbcKcfhAq4NyQJj43SG29UeNZm"
+
+[programs.devnet]
+fade = "86WQKVP5aG8EWaMQQhFbcKcfhAq4NyQJj43SG29UeNZm"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]
