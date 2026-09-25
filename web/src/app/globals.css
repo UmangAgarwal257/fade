@@ -36,10 +36,32 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
+button:not(:disabled),
+a[href],
+label[for],
+summary,
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.wallet-adapter-button,
+.wallet-adapter-button-trigger {
+  cursor: pointer;
+}
+
 .press {
+  cursor: pointer;
   transition-property: transform, background-color, border-color, color;
   transition-duration: 180ms;
   transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.press:disabled {
+  cursor: not-allowed;
 }
 
 .press:active:not(:disabled) {
@@ -67,13 +89,21 @@ a:focus-visible {
   animation: rise 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.surface {
+  border-radius: 0.875rem;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--background) 88%, var(--card));
+}
+
 .card-scene {
-  perspective: 1000px;
+  perspective: 1100px;
+  min-height: 15.5rem;
 }
 
 .card-inner {
   position: relative;
-  min-height: 11rem;
+  height: 100%;
+  min-height: 15.5rem;
   transform-style: preserve-3d;
   transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -85,7 +115,6 @@ a:focus-visible {
 .card-face {
   position: absolute;
   inset: 0;
-  border-radius: 1rem;
   backface-visibility: hidden;
 }
 
@@ -98,11 +127,111 @@ a:focus-visible {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 55%, transparent);
 }
 
+.card-hover:not(:disabled):hover .card-inner:not(.card-flipped) {
+  transform: translateY(-2px);
+}
+
+.card-dim {
+  opacity: 0.72;
+}
+
+.card-locking .card-inner {
+  animation: card-pulse 900ms ease-in-out infinite;
+}
+
+.desk-busy {
+  animation: desk-glow 1.2s ease-in-out infinite;
+}
+
+@keyframes card-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+}
+
+@keyframes desk-glow {
+  0%,
+  100% {
+    border-color: var(--line);
+  }
+  50% {
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+  }
+}
+
+@keyframes spot-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.spot-bar {
+  transform-origin: left center;
+  animation: spot-grow 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.spot-row-hot .spot-bar {
+  background: var(--primary);
+}
+
+.stat-strip > div {
+  flex-basis: 0;
+}
+
+.prompt-ribbon {
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--line));
+  background: color-mix(in srgb, var(--primary) 6%, var(--background));
+  padding: 0.875rem 1rem;
+}
+
+.round-sheet {
+  border-radius: 0.875rem;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--background) 92%, var(--card));
+}
+
+.points-pop {
+  animation: points-pop 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes points-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.play-desk-glow {
+  border-radius: 1rem;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% -15%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 68%),
+    var(--card);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .press,
   .tick,
   .rise,
   .card-inner,
+  .card-locking .card-inner,
+  .desk-busy,
+  .spot-bar,
+  .points-pop,
   .animate-pulse {
     animation: none;
     transition: none;
