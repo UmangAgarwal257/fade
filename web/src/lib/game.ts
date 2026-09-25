@@ -81,6 +81,44 @@ export function deskChoice(symbols: string[], prompt: Prompt): { index: number; 
   return { index, reason };
 }
 
+function dayRng(dayKey: string): () => number {
+  const hash = sha256(new TextEncoder().encode(`fade-daily-v1:${dayKey}`));
+  let i = 0;
+  return () => {
+    const a = hash[i % hash.length];
+    const b = hash[(i + 1) % hash.length];
+    i += 2;
+    return ((a << 8) | b) / 65535;
+  };
+}
+
+export function utcDayKey(date = new Date()): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function dailyPrompt(dayKey: string): Prompt {
+  const hash = sha256(new TextEncoder().encode(`fade-daily-prompt:${dayKey}`));
+  return hash[0] % 2 === 0 ? "cheapest" : "richest";
+}
+
+/** Same four names and price snapshot for everyone on a UTC calendar day. */
+export function dealDaily(stocks: Stock[], dayKey: string): Hand {
+  const prompt = dailyPrompt(dayKey);
+  const rnd = dayRng(dayKey);
+  const shuffled = [...stocks].sort(() => rnd() - 0.5);
+  const cards = shuffled.slice(0, 4);
+  const symbols = cards.map((card) => card.symbol);
+  const desk = deskChoice(symbols, prompt);
+  return {
+    cards,
+    prompt,
+    mode: "solo",
+    hash: hashHand(cards),
+    deskPick: desk.index,
+    deskReason: desk.reason,
+  };
+}
+
 export function dealHand(stocks: Stock[], seen: string[], prompt: Prompt, mode: Mode): Hand {
   const unseen = stocks.filter((stock) => !seen.includes(stock.symbol));
   const pool = unseen.length >= 4 ? unseen : stocks;

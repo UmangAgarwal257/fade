@@ -28,6 +28,10 @@ Connect a devnet wallet, pick Solo or Versus, deal a hand. The four cards show t
 
 All eight live names with mark, token price, and premium. This is the reference board. The game does not show it during a hand.
 
+### Daily
+
+One shared solo hand per UTC calendar day. Prices are snapshotted when the first player loads that day’s challenge. Everyone locks the same four PreStocks and prompt on devnet; scores post to a simple daily board and you can copy a share line after settle.
+
 ## Scoring
 
 - 2 points for the extreme premium in the hand

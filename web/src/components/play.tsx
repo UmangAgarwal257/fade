@@ -7,6 +7,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DeskPanel } from "@/components/desk-panel";
 import { PremiumSpotlight } from "@/components/premium-spotlight";
 import { PlayCard, type RevealCard } from "@/components/play-card";
+import { DailyLeaderboard, type LeaderRow } from "@/components/daily-leaderboard";
+import { DailyShare } from "@/components/daily-share";
 import { SessionRecap, type RoundLog } from "@/components/session-recap";
 import { StatStrip } from "@/components/stat-strip";
 import {
@@ -20,7 +22,14 @@ import {
   settleVersusIx,
 } from "@/lib/chain";
 import { formatPremium, jupBuyLink, truncateAddress } from "@/lib/format";
-import { PROGRAM_ID, STAKE_SOL, type Mode, type Prompt, type PublicCard } from "@/lib/game";
+import {
+  PROGRAM_ID,
+  STAKE_SOL,
+  dailyPrompt,
+  type Mode,
+  type Prompt,
+  type PublicCard,
+} from "@/lib/game";
 import { loadSoundPref, setSoundEnabled, sfx, soundEnabled } from "@/lib/sounds";
 
 const WalletMultiButton = dynamic(
@@ -35,6 +44,7 @@ type Deal = {
   hash: number[];
   seal: string;
   desk: string;
+  day?: string;
 };
 
 type Phase = "lobby" | "dealing" | "hand" | "locking" | "result";
@@ -58,7 +68,29 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function Play() {
+type PlayVariant = "session" | "daily";
+
+type DailyMeta = {
+  day: string;
+  leaderboard: LeaderRow[];
+};
+
+function readDailyCache(day: string): { points: number; symbol: string; premium: number } | null {
+  try {
+    const raw = localStorage.getItem(`fade-daily-${day}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as { points: number; symbol: string; premium: number };
+  } catch {
+    return null;
+  }
+}
+
+function writeDailyCache(day: string, body: { points: number; symbol: string; premium: number }) {
+  localStorage.setItem(`fade-daily-${day}`, JSON.stringify(body));
+}
+
+export function Play({ variant = "session" }: { variant?: PlayVariant }) {
+  const isDaily = variant === "daily";
   const { connection } = useConnection();
   const { publicKey, signTransaction, connected } = useWallet();
   const [mode, setMode] = useState<Mode>("solo");
@@ -78,18 +110,39 @@ export function Play() {
   const [quote, setQuote] = useState<{ href: string; detail: string } | null>(null);
   const [roundLog, setRoundLog] = useState<RoundLog[]>([]);
   const [soundOn, setSoundOn] = useState(true);
+  const [dailyMeta, setDailyMeta] = useState<DailyMeta | null>(null);
+  const [dailyCache, setDailyCache] = useState<{ points: number; symbol: string; premium: number } | null>(null);
   const flipCount = useRef(0);
   const resultFx = useRef(false);
 
-  const prompt = useMemo<Prompt>(() => (round % 2 === 0 ? "cheapest" : "richest"), [round]);
+  const prompt = useMemo<Prompt>(() => {
+    if (isDaily && deal) return deal.prompt;
+    return round % 2 === 0 ? "cheapest" : "richest";
+  }, [deal, isDaily, round]);
   const extreme = reveal ? extremeIndex(reveal, deal?.prompt ?? prompt) : null;
-  const sessionDone = round >= 5;
+  const sessionDone = isDaily ? round >= 1 : round >= 5;
   const allFlipped = flipped.every(Boolean);
   const versus = mode === "versus" || deal?.mode === "versus";
 
   useEffect(() => {
     setSoundOn(loadSoundPref());
   }, []);
+
+  useEffect(() => {
+    if (!isDaily) return;
+    let cancel = false;
+    fetch("/api/daily")
+      .then((response) => response.json())
+      .then((body: DailyMeta & { day: string }) => {
+        if (cancel) return;
+        setDailyMeta({ day: body.day, leaderboard: body.leaderboard ?? [] });
+        setDailyCache(readDailyCache(body.day));
+      })
+      .catch(() => {});
+    return () => {
+      cancel = true;
+    };
+  }, [isDaily]);
 
   useEffect(() => {
     if (!reveal) {
@@ -146,13 +199,19 @@ export function Play() {
     setStep(0);
     setFlipped([false, false, false, false]);
     try {
-      const response = await fetch("/api/deal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, prompt, seen }),
-      });
-      if (!response.ok) throw new Error("Could not deal a hand");
-      const next = (await response.json()) as Deal;
+      const response = isDaily
+        ? await fetch("/api/daily")
+        : await fetch("/api/deal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode, prompt, seen }),
+          });
+      if (!response.ok) throw new Error(isDaily ? "Could not load today's hand" : "Could not deal a hand");
+      const next = (await response.json()) as Deal & { day?: string; leaderboard?: LeaderRow[] };
+      if (isDaily && next.day) {
+        setDailyMeta({ day: next.day, leaderboard: next.leaderboard ?? [] });
+        if (readDailyCache(next.day)) setDailyCache(readDailyCache(next.day));
+      }
       setDeal(next);
       setNonce(BigInt(crypto.getRandomValues(new Uint32Array(1))[0]) + BigInt(Date.now()));
       setPhase("hand");
@@ -275,13 +334,34 @@ export function Play() {
         },
       ]);
       setRound((current) => {
-        const next = Math.min(5, current + 1);
-        if (next >= 5) window.setTimeout(() => sfx.complete(), 500);
+        const cap = isDaily ? 1 : 5;
+        const next = Math.min(cap, current + 1);
+        if (next >= cap) window.setTimeout(() => sfx.complete(), 500);
         return next;
       });
       setPhase("result");
 
       const picked = body.cards[chosen];
+      const dayKey = deal.day ?? dailyMeta?.day;
+      if (isDaily && publicKey && dayKey) {
+        const scoreResponse = await fetch("/api/daily/score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            day: dayKey,
+            wallet: publicKey.toBase58(),
+            points: body.playerPoints,
+            signature: settleSig,
+          }),
+        });
+        if (scoreResponse.ok) {
+          const scored = (await scoreResponse.json()) as { leaderboard: LeaderRow[] };
+          setDailyMeta({ day: dayKey, leaderboard: scored.leaderboard });
+        }
+        const cache = { points: body.playerPoints, symbol: picked.symbol, premium: picked.premium };
+        writeDailyCache(dayKey, cache);
+        setDailyCache(cache);
+      }
       const quoteResponse = await fetch(`/api/quote?mint=${picked.mint}`);
       const quoteBody = (await quoteResponse.json()) as { link?: string; quote?: string | null };
       setQuote({
@@ -339,12 +419,31 @@ export function Play() {
   const deskSymbol =
     result && result.deskPick !== null && reveal ? reveal[result.deskPick].symbol : null;
 
+  const alreadyPlayedDaily =
+    isDaily &&
+    dailyMeta &&
+    (dailyCache !== null ||
+      (publicKey && dailyMeta.leaderboard.some((row) => row.wallet === publicKey.toBase58())));
+
+  const dailyDoneCopy =
+    dailyCache ??
+    (dailyMeta && publicKey
+      ? (() => {
+          const row = dailyMeta.leaderboard.find((item) => item.wallet === publicKey.toBase58());
+          return row ? { points: row.points, symbol: "—", premium: 0 } : null;
+        })()
+      : null);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Devnet desk</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Fade the wrong premium</h1>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
+            {isDaily ? "UTC daily" : "Devnet desk"}
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
+            {isDaily ? "Today's Fade" : "Fade the wrong premium"}
+          </h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <WalletMultiButton />
@@ -356,32 +455,45 @@ export function Play() {
           >
             Sound {soundOn && soundEnabled() ? "on" : "off"}
           </button>
-          <div className="flex gap-2" role="group" aria-label="Mode">
-            {(["solo", "versus"] as Mode[]).map((item) => (
-              <button
-                key={item}
-                type="button"
-                disabled={phase === "locking" || (deal !== null && phase !== "result")}
-                onClick={() => setMode(item)}
-                className={`press min-h-11 rounded-full px-4 text-sm capitalize disabled:opacity-40 ${mode === item ? "bg-primary text-primary-foreground" : "border border-line text-muted"}`}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
+          {!isDaily && (
+            <div className="flex gap-2" role="group" aria-label="Mode">
+              {(["solo", "versus"] as Mode[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  disabled={phase === "locking" || (deal !== null && phase !== "result")}
+                  onClick={() => setMode(item)}
+                  className={`press min-h-11 rounded-full px-4 text-sm capitalize disabled:opacity-40 ${mode === item ? "bg-primary text-primary-foreground" : "border border-line text-muted"}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <StatStrip
-        items={[
-          { label: "Round", value: `${Math.min(round + 1, 5)}/5` },
-          { label: "Stake", value: `${STAKE_SOL} SOL` },
-          { label: "Score", value: String(score?.points ?? 0) },
-          { label: "Mode", value: mode },
-        ]}
+        items={
+          isDaily
+            ? [
+                { label: "Day", value: dailyMeta?.day ?? "…" },
+                { label: "Stake", value: `${STAKE_SOL} SOL` },
+                { label: "Board", value: String(dailyMeta?.leaderboard.length ?? 0) },
+                { label: "Mode", value: "solo" },
+              ]
+            : [
+                { label: "Round", value: `${Math.min(round + 1, 5)}/5` },
+                { label: "Stake", value: `${STAKE_SOL} SOL` },
+                { label: "Score", value: String(score?.points ?? 0) },
+                { label: "Mode", value: mode },
+              ]
+        }
       />
 
-      <div className={`grid gap-5 ${versus ? "lg:grid-cols-[minmax(0,1fr)_12.5rem]" : ""}`}>
+      <div
+        className={`grid gap-5 ${versus ? "lg:grid-cols-[minmax(0,1fr)_12.5rem]" : isDaily ? "lg:grid-cols-[minmax(0,1fr)_14rem]" : ""}`}
+      >
       <section className="play-desk-glow border border-line p-5 md:p-6">
         {deal ? (
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -405,10 +517,16 @@ export function Play() {
         ) : (
           <p className="text-muted">
             {connected
-              ? sessionDone
-                ? "Five rounds down. Start a new session or check the table."
-                : `Round ${round + 1} is ${prompt}. Deal four names, lock one on devnet, then watch the premiums flip.`
-              : "Connect a devnet wallet to deal."}
+              ? isDaily
+                ? alreadyPlayedDaily
+                  ? "You already locked today's hand. Scores reset at 00:00 UTC."
+                  : "Everyone gets the same four PreStocks and prompt. Lock once on devnet to join the board."
+                : sessionDone
+                  ? "Five rounds down. Start a new session or check the table."
+                  : `Round ${round + 1} is ${prompt}. Deal four names, lock one on devnet, then watch the premiums flip.`
+              : isDaily
+                ? "Connect a devnet wallet to play today's Fade."
+                : "Connect a devnet wallet to deal."}
           </p>
         )}
 
@@ -418,15 +536,32 @@ export function Play() {
           <SessionRecap log={roundLog} total={roundLog.reduce((sum, row) => sum + row.points, 0)} onNewSession={newSession} />
         )}
 
-        {phase === "lobby" && !sessionDone && (
+        {phase === "lobby" && !sessionDone && !alreadyPlayedDaily && (
           <button
             type="button"
             disabled={!connected}
             onClick={startRound}
             className="press mt-6 min-h-12 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground disabled:opacity-40"
           >
-            Deal round {round + 1}
+            {isDaily ? "Load today's hand" : `Deal round ${round + 1}`}
           </button>
+        )}
+
+        {isDaily && phase === "lobby" && alreadyPlayedDaily && dailyMeta && dailyDoneCopy && (
+          <div className="mt-6 space-y-3">
+            <p className="text-sm">
+              You scored <span className="font-semibold tabular-nums">+{dailyDoneCopy.points}</span> today.
+            </p>
+            {dailyCache && (
+              <DailyShare
+                day={dailyMeta.day}
+                points={dailyCache.points}
+                symbol={dailyCache.symbol}
+                premium={dailyCache.premium}
+                prompt={deal?.prompt ?? dailyPrompt(dailyMeta.day)}
+              />
+            )}
+          </div>
         )}
 
         {phase === "dealing" && (
@@ -509,7 +644,7 @@ export function Play() {
                   Buy this name
                 </a>
               )}
-              {!sessionDone && (
+              {!sessionDone && !isDaily && (
                 <button
                   type="button"
                   onClick={resetHand}
@@ -520,9 +655,22 @@ export function Play() {
               )}
             </div>
             {quote && <p className="mt-2 font-mono text-[11px] text-muted">{quote.detail}</p>}
+            {isDaily && dailyMeta && result && pick !== null && reveal && (
+              <DailyShare
+                day={dailyMeta.day}
+                points={result.player}
+                symbol={reveal[pick].symbol}
+                premium={reveal[pick].premium}
+                prompt={deal.prompt}
+              />
+            )}
           </div>
         )}
       </section>
+
+      {isDaily && dailyMeta && (
+        <DailyLeaderboard day={dailyMeta.day} rows={dailyMeta.leaderboard} you={publicKey?.toBase58()} />
+      )}
 
       <DeskPanel
         active={versus}
