@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import { Nav } from "@/components/nav";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -25,19 +25,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] antialiased`}>
         <Providers>
           <div className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col px-5 py-6">
-            <header className="flex items-center justify-between border-b border-line pb-4">
-              <Link href="/" className="text-lg font-semibold tracking-tight">
-                Fade
-              </Link>
-              <nav className="flex gap-5 text-sm text-muted">
-                <Link href="/" className="hover:text-foreground">
-                  Play
-                </Link>
-                <Link href="/table" className="hover:text-foreground">
-                  Table
-                </Link>
-              </nav>
-            </header>
+            <Nav />
             <main className="flex-1 py-8">{children}</main>
           </div>
         </Providers>
