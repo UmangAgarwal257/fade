@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { Nav } from "@/components/nav";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <main className="flex-1 py-8">{children}</main>
           </div>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
