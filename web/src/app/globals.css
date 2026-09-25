@@ -35,3 +35,89 @@ a:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;
 }
+
+.press {
+  transition-property: transform, background-color, border-color, color;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.press:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.tick {
+  transition-property: transform, background-color;
+  transition-duration: 280ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.card-scene {
+  perspective: 1000px;
+}
+
+.card-inner {
+  position: relative;
+  min-height: 11rem;
+  transform-style: preserve-3d;
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  backface-visibility: hidden;
+}
+
+.card-front {
+  transform: rotateY(180deg);
+}
+
+.card-yours .card-back,
+.card-yours .card-front {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 55%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press,
+  .tick,
+  .rise,
+  .card-inner,
+  .animate-pulse {
+    animation: none;
+    transition: none;
+  }
+
+  .card-flipped {
+    transform: none;
+  }
+
+  .card-back {
+    display: none;
+  }
+
+  .card-front {
+    position: relative;
+    transform: none;
+  }
+}
