@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import { Nav } from "@/components/nav";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -18,6 +19,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Fade",
   description: "Call which PreStock trades cheap or rich versus its mark. The pick is a devnet transaction.",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -35,6 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <main className="flex-1 py-8">{children}</main>
           </div>
         </Providers>
+        <Analytics />
         <SpeedInsights />
       </body>
     </html>
