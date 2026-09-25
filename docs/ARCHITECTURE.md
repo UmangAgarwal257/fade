@@ -64,4 +64,4 @@ Next.js app in `web/`. Wallet adapter talks to devnet. Instruction data is built
 
 ## Not built
 
-A mainnet program, a Jupiter swap inside the round, a custom oracle, and a README. The quote route calls Jupiter only when `JUPITER_API_KEY` is set, and otherwise links to jup.ag.
+A mainnet program, a Jupiter swap inside the round, and a custom oracle. The quote route calls Jupiter only when `JUPITER_API_KEY` is set, and otherwise links to jup.ag.

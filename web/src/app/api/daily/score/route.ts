@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const leaderboard = recordDailyScore(day, {
+    const leaderboard = await recordDailyScore(day, {
       wallet: body.wallet,
       points: verified.points,
       signature: body.signature,

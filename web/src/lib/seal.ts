@@ -2,12 +2,14 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import path from "path";
 import type { Hand } from "./game";
-
-const keysDir = path.join(process.cwd(), "..", "keys");
+import { dataRoot } from "./paths";
 
 function secret(): string {
-  mkdirSync(keysDir, { recursive: true });
-  const file = path.join(keysDir, "seal");
+  const env = process.env.FADE_SEAL_SECRET;
+  if (env) return env.trim();
+  const dir = dataRoot();
+  mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, "seal");
   if (!existsSync(file)) writeFileSync(file, randomBytes(32).toString("hex"));
   return readFileSync(file, "utf8").trim();
 }

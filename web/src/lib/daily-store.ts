@@ -1,11 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
-import path from "path";
+import { kv } from "@vercel/kv";
 import { loadCatalogue } from "@/lib/catalogue";
 import { dealDaily, utcDayKey, type Hand } from "@/lib/game";
 import { sealHand } from "@/lib/seal";
 import { deskKeypair } from "@/lib/desk";
-
-const storeDir = path.join(process.cwd(), "..", "keys", "daily");
+import { dailyDir } from "@/lib/paths";
 
 export type DailyScore = {
   wallet: string;
@@ -21,23 +20,38 @@ type DailyFile = {
   scores: DailyScore[];
 };
 
-function dayPath(day: string): string {
-  return path.join(storeDir, `${day}.json`);
+function kvEnabled(): boolean {
+  return Boolean(process.env.KV_REST_API_URL);
 }
 
-function readDay(day: string): DailyFile | null {
+function kvKey(day: string): string {
+  return `fade:daily:${day}`;
+}
+
+function dayPath(day: string): string {
+  return `${dailyDir()}/${day}.json`;
+}
+
+async function readDay(day: string): Promise<DailyFile | null> {
+  if (kvEnabled()) {
+    return (await kv.get<DailyFile>(kvKey(day))) ?? null;
+  }
   const file = dayPath(day);
   if (!existsSync(file)) return null;
   return JSON.parse(readFileSync(file, "utf8")) as DailyFile;
 }
 
-function writeDay(file: DailyFile) {
-  mkdirSync(storeDir, { recursive: true });
+async function writeDay(file: DailyFile): Promise<void> {
+  if (kvEnabled()) {
+    await kv.set(kvKey(file.day), file);
+    return;
+  }
+  mkdirSync(dailyDir(), { recursive: true });
   writeFileSync(dayPath(file.day), JSON.stringify(file, null, 2));
 }
 
 export async function loadDailyChallenge(day = utcDayKey()) {
-  let file = readDay(day);
+  let file = await readDay(day);
   if (!file) {
     const hand = dealDaily(await loadCatalogue(), day);
     file = {
@@ -46,7 +60,7 @@ export async function loadDailyChallenge(day = utcDayKey()) {
       seal: sealHand(hand),
       scores: [],
     };
-    writeDay(file);
+    await writeDay(file);
   }
   return {
     day: file.day,
@@ -57,8 +71,8 @@ export async function loadDailyChallenge(day = utcDayKey()) {
   };
 }
 
-export function recordDailyScore(day: string, entry: DailyScore): DailyScore[] {
-  const file = readDay(day);
+export async function recordDailyScore(day: string, entry: DailyScore): Promise<DailyScore[]> {
+  const file = await readDay(day);
   if (!file) throw new Error("No daily challenge for that day");
   const existing = file.scores.findIndex((row) => row.wallet === entry.wallet);
   if (existing >= 0) {
@@ -68,7 +82,7 @@ export function recordDailyScore(day: string, entry: DailyScore): DailyScore[] {
   } else {
     file.scores.push(entry);
   }
-  writeDay(file);
+  await writeDay(file);
   return sortedScores(file.scores);
 }
 
