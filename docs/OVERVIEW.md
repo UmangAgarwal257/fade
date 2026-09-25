@@ -61,7 +61,7 @@ npm install
 npm run dev
 ```
 
-Airdrop the player from the Play screen. The first versus round can airdrop the desk key, which is created under `keys/` and is not committed.
+Fund the player wallet with devnet SOL before dealing. The desk key is created under `keys/` and is not committed. Fund that address before a versus round.
 
 Program `86WQKVP5aG8EWaMQQhFbcKcfhAq4NyQJj43SG29UeNZm`.
 

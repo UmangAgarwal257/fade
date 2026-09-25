@@ -115,6 +115,12 @@ export function settleVersusIx(args: {
   });
 }
 
+const PICK_OFFSET = 8 + 32 + 32 + 8 + 1 + 1 + 32 * 4 + 32;
+
+export function readPicks(data: Buffer): { player: number; desk: number } {
+  return { player: data[PICK_OFFSET] ?? 255, desk: data[PICK_OFFSET + 1] ?? 255 };
+}
+
 export function decodeScore(data: Buffer): { points: number; rounds: number } {
   return {
     points: data.readUInt32LE(8 + 32),
