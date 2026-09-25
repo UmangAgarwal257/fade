@@ -17,11 +17,10 @@ type Props = {
 export function DailyLeaderboard({ day, rows, you }: Props) {
   return (
     <aside className="border border-line p-5 md:p-6">
-      <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Daily board</p>
-      <h2 className="mt-1 text-lg font-medium tracking-tight">{day} UTC</h2>
-      <p className="mt-2 text-sm text-muted">One shared hand. Solo stake. Best score wins the day.</p>
+      <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Board</p>
+      <h2 className="mt-1 text-base font-medium tracking-tight">{day}</h2>
       {rows.length === 0 ? (
-        <p className="mt-6 font-mono text-xs text-muted">No scores yet. Be first.</p>
+        <p className="mt-5 text-xs text-muted">No scores yet.</p>
       ) : (
         <ol className="mt-5 space-y-2">
           {rows.slice(0, 12).map((row, index) => {

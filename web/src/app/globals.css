@@ -48,8 +48,14 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.wallet-adapter-button,
-.wallet-adapter-button-trigger {
+.wallet-slot .wallet-adapter-button,
+.wallet-slot .wallet-adapter-button-trigger {
+  height: 2.75rem !important;
+  min-height: 2.75rem;
+  padding: 0 1rem !important;
+  border-radius: 9999px !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem;
   cursor: pointer;
 }
 

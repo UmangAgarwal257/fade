@@ -22,15 +22,8 @@ import {
   settleVersusIx,
 } from "@/lib/chain";
 import { formatPremium, jupBuyLink, truncateAddress } from "@/lib/format";
-import {
-  PROGRAM_ID,
-  STAKE_SOL,
-  dailyPrompt,
-  type Mode,
-  type Prompt,
-  type PublicCard,
-} from "@/lib/game";
-import { loadSoundPref, setSoundEnabled, sfx, soundEnabled } from "@/lib/sounds";
+import { STAKE_SOL, dailyPrompt, type Mode, type Prompt, type PublicCard } from "@/lib/game";
+import { sfx } from "@/lib/sounds";
 
 const WalletMultiButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((mod) => mod.WalletMultiButton),
@@ -109,7 +102,6 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
   const [signature, setSignature] = useState<string | null>(null);
   const [quote, setQuote] = useState<{ href: string; detail: string } | null>(null);
   const [roundLog, setRoundLog] = useState<RoundLog[]>([]);
-  const [soundOn, setSoundOn] = useState(true);
   const [dailyMeta, setDailyMeta] = useState<DailyMeta | null>(null);
   const [dailyCache, setDailyCache] = useState<{ points: number; symbol: string; premium: number } | null>(null);
   const flipCount = useRef(0);
@@ -123,10 +115,6 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
   const sessionDone = isDaily ? round >= 1 : round >= 5;
   const allFlipped = flipped.every(Boolean);
   const versus = mode === "versus" || deal?.mode === "versus";
-
-  useEffect(() => {
-    setSoundOn(loadSoundPref());
-  }, []);
 
   useEffect(() => {
     if (!isDaily) return;
@@ -392,13 +380,6 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
     setSignature(null);
   }
 
-  function toggleSound() {
-    const next = !soundOn;
-    setSoundOn(next);
-    setSoundEnabled(next);
-    if (next) sfx.step();
-  }
-
   const activeSteps = deal?.mode === "versus" ? STEPS : ["Sign pick", "Reveal", "Settle"];
 
   const deskState =
@@ -436,40 +417,32 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-            {isDaily ? "UTC daily" : "Devnet desk"}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
-            {isDaily ? "Today's Fade" : "Fade the wrong premium"}
+      <div className="flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-primary">{isDaily ? "Daily" : "Play"}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
+            {isDaily ? "Today's hand" : "Fade the premium"}
           </h1>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <WalletMultiButton />
-          <button
-            type="button"
-            onClick={toggleSound}
-            className="press min-h-11 rounded-full border border-line px-4 font-mono text-xs text-muted"
-            aria-pressed={soundOn}
-          >
-            Sound {soundOn && soundEnabled() ? "on" : "off"}
-          </button>
+        <div className="flex shrink-0 items-center gap-2">
           {!isDaily && (
-            <div className="flex gap-2" role="group" aria-label="Mode">
+            <div className="flex gap-1.5" role="group" aria-label="Mode">
               {(["solo", "versus"] as Mode[]).map((item) => (
                 <button
                   key={item}
                   type="button"
                   disabled={phase === "locking" || (deal !== null && phase !== "result")}
                   onClick={() => setMode(item)}
-                  className={`press min-h-11 rounded-full px-4 text-sm capitalize disabled:opacity-40 ${mode === item ? "bg-primary text-primary-foreground" : "border border-line text-muted"}`}
+                  className={`press h-11 rounded-full px-3.5 text-sm capitalize disabled:opacity-40 ${mode === item ? "bg-primary text-primary-foreground" : "border border-line text-muted"}`}
                 >
                   {item}
                 </button>
               ))}
             </div>
           )}
+          <div className="wallet-slot">
+            <WalletMultiButton />
+          </div>
         </div>
       </div>
 
@@ -497,9 +470,8 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
       <section className="play-desk-glow border border-line p-5 md:p-6">
         {deal ? (
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="prompt-ribbon min-w-[min(100%,18rem)] flex-1">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-primary">{deal.prompt}</p>
-              <h2 className="mt-1 text-lg font-medium tracking-tight md:text-xl">{promptHeadline(deal.prompt)}</h2>
+            <div className="prompt-ribbon min-w-0 flex-1">
+              <h2 className="text-base font-medium tracking-tight md:text-lg">{promptHeadline(deal.prompt)}</h2>
             </div>
             {phase === "locking" && (
               <div className="flex flex-wrap gap-1.5">
@@ -515,18 +487,16 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
             )}
           </div>
         ) : (
-          <p className="text-muted">
-            {connected
-              ? isDaily
-                ? alreadyPlayedDaily
-                  ? "You already locked today's hand. Scores reset at 00:00 UTC."
-                  : "Everyone gets the same four PreStocks and prompt. Lock once on devnet to join the board."
-                : sessionDone
-                  ? "Five rounds down. Start a new session or check the table."
-                  : `Round ${round + 1} is ${prompt}. Deal four names, lock one on devnet, then watch the premiums flip.`
+          <p className="text-sm text-muted">
+            {!connected
+              ? "Connect devnet wallet."
               : isDaily
-                ? "Connect a devnet wallet to play today's Fade."
-                : "Connect a devnet wallet to deal."}
+                ? alreadyPlayedDaily
+                  ? "Done for today. Resets 00:00 UTC."
+                  : "Same hand for everyone. One lock."
+                : sessionDone
+                  ? "Session complete."
+                  : `Round ${round + 1} · ${prompt}.`}
           </p>
         )}
 
@@ -543,7 +513,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
             onClick={startRound}
             className="press mt-6 min-h-12 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground disabled:opacity-40"
           >
-            {isDaily ? "Load today's hand" : `Deal round ${round + 1}`}
+            {isDaily ? "Play daily" : `Deal ${round + 1}`}
           </button>
         )}
 
@@ -593,9 +563,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
           </div>
         )}
 
-        {phase === "locking" && !reveal && (
-          <p className="mt-4 font-mono text-xs text-muted">Signing on devnet. Do not switch cards.</p>
-        )}
+        {phase === "locking" && !reveal && <p className="mt-4 text-xs text-muted">Signing…</p>}
 
         {phase === "result" && result && deal && (
           <div className="rise round-sheet mt-5 p-4 md:p-5">
@@ -607,9 +575,9 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
                   <span className="text-base text-muted md:text-lg"> pts</span>
                 </p>
                 {deal.mode === "versus" && (
-                  <p className="mt-1 font-mono text-xs text-muted">
+                  <p className="mt-1 text-xs text-muted">
                     Desk {result.desk} pts ·{" "}
-                    {result.player > result.desk ? "You take the pot" : result.player === result.desk ? "Stakes return" : "Desk takes the pot"}
+                    {result.player > result.desk ? "You win pot" : result.player === result.desk ? "Tie" : "Desk wins"}
                   </p>
                 )}
               </div>
@@ -626,35 +594,34 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
             <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
               {signature && (
                 <a
-                  className="press inline-flex min-h-10 items-center rounded-lg border border-line px-3 font-mono text-[11px]"
+                  className="press inline-flex h-10 items-center rounded-full border border-line px-3 font-mono text-[11px]"
                   href={`https://explorer.solana.com/tx/${signature}?cluster=devnet`}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Settlement {truncateAddress(signature)}
+                  Tx {truncateAddress(signature)}
                 </a>
               )}
               {quote && (
                 <a
-                  className="press inline-flex min-h-10 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground"
+                  className="press inline-flex h-10 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground"
                   href={quote.href}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Buy this name
+                  Buy
                 </a>
               )}
               {!sessionDone && !isDaily && (
                 <button
                   type="button"
                   onClick={resetHand}
-                  className="press ml-auto inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground"
+                  className="press inline-flex h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground sm:ml-auto"
                 >
-                  Next round
+                  Next
                 </button>
               )}
             </div>
-            {quote && <p className="mt-2 font-mono text-[11px] text-muted">{quote.detail}</p>}
             {isDaily && dailyMeta && result && pick !== null && reveal && (
               <DailyShare
                 day={dailyMeta.day}
@@ -681,7 +648,6 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
       />
       </div>
 
-      <p className="font-mono text-xs text-muted">Program {truncateAddress(PROGRAM_ID, 6)}</p>
     </div>
   );
 }

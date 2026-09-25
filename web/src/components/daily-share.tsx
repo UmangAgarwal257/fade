@@ -28,16 +28,12 @@ export function DailyShare({ day, points, symbol, premium, prompt }: Props) {
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-line bg-background/60 p-4">
-      <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Share today</p>
-      <p className="mt-2 text-sm text-foreground">{line}</p>
-      <button
-        type="button"
-        onClick={copy}
-        className="press mt-3 min-h-10 rounded-full border border-line px-4 text-sm text-muted"
-      >
-        Copy result
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={copy}
+      className="press mt-3 h-10 rounded-full border border-line px-4 text-sm text-muted"
+    >
+      Copy share text
+    </button>
   );
 }
