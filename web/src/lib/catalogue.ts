@@ -13,7 +13,7 @@ type ApiRow = {
 let cache: { at: number; stocks: Stock[] } | null = null;
 
 export async function loadCatalogue(): Promise<Stock[]> {
-  if (cache && Date.now() - cache.at < 20_000) return cache.stocks;
+  if (cache && Date.now() - cache.at < 60_000) return cache.stocks;
   const response = await fetch("https://prestocks.com/api/prestocks", { cache: "no-store" });
   if (!response.ok) throw new Error("PreStocks catalogue is unavailable");
   const rows = (await response.json()) as ApiRow[];

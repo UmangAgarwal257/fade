@@ -4,7 +4,7 @@ import { toPublic, utcDayKey } from "@/lib/game";
 
 export async function GET() {
   const challenge = await loadDailyChallenge();
-  return NextResponse.json({
+  const body = {
     day: challenge.day,
     prompt: challenge.hand.prompt,
     mode: challenge.hand.mode,
@@ -19,5 +19,8 @@ export async function GET() {
       at: row.at,
     })),
     utcReset: `${utcDayKey()}T00:00:00.000Z`,
+  };
+  return NextResponse.json(body, {
+    headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=60" },
   });
 }

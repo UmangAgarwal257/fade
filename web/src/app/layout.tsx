@@ -22,6 +22,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://api.devnet.solana.com" />
+        <link rel="preconnect" href="https://www.prestocks.com" />
+        <link rel="dns-prefetch" href="https://api.devnet.solana.com" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] antialiased`}>
         <Providers>
           <div className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col px-5 py-6">

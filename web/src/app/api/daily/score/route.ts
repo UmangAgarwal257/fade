@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { recordDailyScore } from "@/lib/daily-store";
 import { utcDayKey } from "@/lib/game";
+import { verifySoloSettle } from "@/lib/verify-settle";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -14,18 +17,24 @@ export async function POST(request: Request) {
   if (!body.wallet || body.points === undefined || !body.signature) {
     return NextResponse.json({ error: "Missing score" }, { status: 400 });
   }
-  if (body.points < 0 || body.points > 2) {
-    return NextResponse.json({ error: "Invalid points" }, { status: 400 });
-  }
   try {
     new PublicKey(body.wallet);
   } catch {
     return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
   }
+
+  const verified = await verifySoloSettle(connection, body.wallet, body.signature);
+  if (!verified.ok) {
+    return NextResponse.json({ error: verified.error }, { status: 400 });
+  }
+  if (body.points !== verified.points) {
+    return NextResponse.json({ error: "Points do not match settlement" }, { status: 400 });
+  }
+
   try {
     const leaderboard = recordDailyScore(day, {
       wallet: body.wallet,
-      points: body.points,
+      points: verified.points,
       signature: body.signature,
       at: Date.now(),
     });

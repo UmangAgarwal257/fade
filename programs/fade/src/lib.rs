@@ -15,6 +15,7 @@ include!("instructions/lock_pick.rs");
 include!("instructions/lock_desk.rs");
 include!("instructions/settle_solo.rs");
 include!("instructions/settle_versus.rs");
+include!("instructions/cancel_versus.rs");
 
 declare_id!("86WQKVP5aG8EWaMQQhFbcKcfhAq4NyQJj43SG29UeNZm");
 
@@ -56,5 +57,9 @@ pub mod fade {
         tokens: [u64; 4],
     ) -> Result<()> {
         handle_settle_versus(ctx, marks, tokens)
+    }
+
+    pub fn cancel_versus(ctx: Context<CancelVersus>) -> Result<()> {
+        handle_cancel_versus(ctx)
     }
 }

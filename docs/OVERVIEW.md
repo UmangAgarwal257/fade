@@ -30,7 +30,7 @@ All eight live names with mark, token price, and premium. This is the reference 
 
 ### Daily
 
-One shared solo hand per UTC calendar day. Prices are snapshotted when the first player loads that day’s challenge. Everyone locks the same four PreStocks and prompt on devnet; scores post to a simple daily board and you can copy a share line after settle.
+One shared solo hand per UTC calendar day. Prices are snapshotted when the first player loads that day’s challenge. Everyone locks the same four PreStocks and prompt on devnet; scores post to a simple daily board (verified against the settle transaction) and you can copy a share line after settle.
 
 ## Scoring
 

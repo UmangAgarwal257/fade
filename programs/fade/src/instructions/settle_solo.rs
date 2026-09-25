@@ -12,7 +12,7 @@ pub struct SettleSolo<'info> {
 pub fn handle_settle_solo(ctx: Context<SettleSolo>, marks: [u64; 4], tokens: [u64; 4]) -> Result<()> {
     let round = &ctx.accounts.round;
     require!(round.mode == MODE_SOLO, ErrorCode::WrongMode);
-    require!(round.player_pick != UNSET_PICK, ErrorCode::DeskNotReady);
+    require!(round.player_pick != UNSET_PICK, ErrorCode::PickNotReady);
     for mark in marks {
         require!(mark > 0, ErrorCode::BadPrice);
     }

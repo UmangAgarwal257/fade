@@ -1,5 +1,5 @@
-import { Play } from "@/components/play";
+import { PlayLoader } from "@/components/play-loader";
 
 export default function HomePage() {
-  return <Play />;
+  return <PlayLoader />;
 }

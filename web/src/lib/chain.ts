@@ -92,6 +92,17 @@ export function settleSoloIx(player: PublicKey, nonce: bigint, marks: bigint[], 
   });
 }
 
+export function cancelVersusIx(player: PublicKey, nonce: bigint): TransactionInstruction {
+  return new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: player, isSigner: true, isWritable: true },
+      { pubkey: roundPda(player, nonce), isSigner: false, isWritable: true },
+    ],
+    data: disc("122b881883280368"),
+  });
+}
+
 export function settleVersusIx(args: {
   player: PublicKey;
   desk: PublicKey;

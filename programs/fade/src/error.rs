@@ -14,8 +14,12 @@ pub enum ErrorCode {
     BadPick,
     #[msg("Pick is already locked")]
     AlreadyPicked,
+    #[msg("Player has not locked a pick")]
+    PickNotReady,
     #[msg("Desk has not locked a pick")]
     DeskNotReady,
+    #[msg("Desk already locked; settle the round instead")]
+    DeskLocked,
     #[msg("Price hash does not match the committed hand")]
     HashMismatch,
     #[msg("Mark price must be greater than zero")]

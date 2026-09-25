@@ -23,6 +23,7 @@ export function Nav() {
             <Link
               key={link.href}
               href={link.href}
+              prefetch={link.href !== pathname}
               aria-current={active ? "page" : undefined}
               className={`cursor-pointer rounded-full px-4 py-2 ${active ? "bg-card text-foreground" : "text-muted hover:text-foreground"}`}
             >

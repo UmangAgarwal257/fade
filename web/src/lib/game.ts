@@ -56,18 +56,32 @@ export function premium(card: Stock): number {
   return (card.tokenPrice - card.markPrice) / card.markPrice;
 }
 
-export function pointsFor(prompt: Prompt, pick: number, cards: Stock[]): number {
-  const extreme = cards.reduce((best, card, index) => {
-    const better =
-      prompt === "cheapest" ? premium(card) < premium(cards[best]) : premium(card) > premium(cards[best]);
-    return better ? index : best;
-  }, 0);
-  if (premium(cards[pick]) === premium(cards[extreme])) return 2;
+function premiumCmp(markA: bigint, tokenA: bigint, markB: bigint, tokenB: bigint): number {
+  const left = (tokenA - markA) * markB;
+  const right = (tokenB - markB) * markA;
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+/** Matches on-chain `points_for` (integer marks/tokens). */
+export function pointsForScaled(prompt: Prompt, pick: number, marks: bigint[], tokens: bigint[]): number {
+  let best = 0;
+  for (let i = 1; i < 4; i++) {
+    const ord = premiumCmp(marks[i], tokens[i], marks[best], tokens[best]);
+    const better = prompt === "cheapest" ? ord < 0 : ord > 0;
+    if (better) best = i;
+  }
+  if (premiumCmp(marks[pick], tokens[pick], marks[best], tokens[best]) === 0) return 2;
   const right =
-    prompt === "cheapest"
-      ? cards[pick].tokenPrice < cards[pick].markPrice
-      : cards[pick].tokenPrice > cards[pick].markPrice;
+    prompt === "cheapest" ? tokens[pick] < marks[pick] : tokens[pick] > marks[pick];
   return right ? 1 : 0;
+}
+
+export function pointsFor(prompt: Prompt, pick: number, cards: Stock[]): number {
+  const marks = cards.map((card) => scalePrice(card.markPrice));
+  const tokens = cards.map((card) => scalePrice(card.tokenPrice));
+  return pointsForScaled(prompt, pick, marks, tokens);
 }
 
 export function deskChoice(symbols: string[], prompt: Prompt): { index: number; reason: string } {

@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import { memo } from "react";
 import { formatPremium, formatUsd } from "@/lib/format";
 import type { PublicCard } from "@/lib/game";
 
@@ -25,7 +27,19 @@ type Props = {
   onPick: () => void;
 };
 
-export function PlayCard({ card, revealed, flipped, yours, desk, winner, dimmed, locking, disabled, onPick, index }: Props) {
+export const PlayCard = memo(function PlayCard({
+  card,
+  revealed,
+  flipped,
+  yours,
+  desk,
+  winner,
+  dimmed,
+  locking,
+  disabled,
+  onPick,
+  index,
+}: Props) {
   const premium = revealed?.premium;
   const rich = premium !== undefined && premium > 0;
   const cheap = premium !== undefined && premium < 0;
@@ -41,7 +55,14 @@ export function PlayCard({ card, revealed, flipped, yours, desk, winner, dimmed,
       <div className={`card-inner ${flipped ? "card-flipped" : ""}`}>
         <div className="card-face card-back surface flex flex-col p-4">
           <div className="flex items-center gap-3">
-            <img src={card.image} alt="" className="h-11 w-11 shrink-0 rounded-full bg-card object-cover ring-1 ring-line" />
+            <Image
+              src={card.image}
+              alt=""
+              width={44}
+              height={44}
+              sizes="44px"
+              className="h-11 w-11 shrink-0 rounded-full bg-card object-cover ring-1 ring-line"
+            />
             <div className="min-w-0">
               <p className="truncate font-medium leading-tight">{card.name}</p>
               <p className="font-mono text-[11px] text-muted">{card.symbol}</p>
@@ -54,7 +75,14 @@ export function PlayCard({ card, revealed, flipped, yours, desk, winner, dimmed,
         </div>
         <div className="card-face card-front surface flex flex-col p-4">
           <div className="flex items-start justify-between gap-2">
-            <img src={card.image} alt="" className="h-11 w-11 shrink-0 rounded-full bg-background object-cover ring-1 ring-line" />
+            <Image
+              src={card.image}
+              alt=""
+              width={44}
+              height={44}
+              sizes="44px"
+              className="h-11 w-11 shrink-0 rounded-full bg-background object-cover ring-1 ring-line"
+            />
             {premium !== undefined && (
               <span
                 className={`shrink-0 rounded-md px-2 py-1 font-mono text-xs tabular-nums ${cheap ? "bg-primary/15 text-primary" : rich ? "bg-danger/15 text-danger" : "text-muted"}`}
@@ -83,4 +111,4 @@ export function PlayCard({ card, revealed, flipped, yours, desk, winner, dimmed,
       </div>
     </button>
   );
-}
+});

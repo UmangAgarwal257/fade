@@ -1,5 +1,5 @@
-import { Play } from "@/components/play";
+import { PlayLoader } from "@/components/play-loader";
 
 export default function DailyPage() {
-  return <Play variant="daily" />;
+  return <PlayLoader variant="daily" />;
 }

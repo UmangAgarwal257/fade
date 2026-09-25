@@ -25,6 +25,7 @@ Anchor program `86WQKVP5aG8EWaMQQhFbcKcfhAq4NyQJj43SG29UeNZm` on devnet.
 | `lock_desk` | Desk signer sets an index and escrows 0.05 SOL. Versus only. |
 | `settle_solo` | Checks the hash, adds points, closes the round to the player so the stake and rent return. |
 | `settle_versus` | Same check. Higher score takes both stakes. A tie returns each stake. Rent returns to the player. |
+| `cancel_versus` | Player closes a versus round when the desk never locked. Returns stake and rent to the player. |
 
 ### Accounts
 

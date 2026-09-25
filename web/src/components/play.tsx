@@ -4,14 +4,12 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction } from "@solana/web3.js";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DeskPanel } from "@/components/desk-panel";
-import { PremiumSpotlight } from "@/components/premium-spotlight";
 import { PlayCard, type RevealCard } from "@/components/play-card";
-import { DailyLeaderboard, type LeaderRow } from "@/components/daily-leaderboard";
-import { DailyShare } from "@/components/daily-share";
-import { SessionRecap, type RoundLog } from "@/components/session-recap";
+import type { LeaderRow } from "@/components/daily-leaderboard";
+import type { RoundLog } from "@/components/session-recap";
 import { StatStrip } from "@/components/stat-strip";
 import {
+  cancelVersusIx,
   decodeScore,
   lockPickIx,
   openRoundIx,
@@ -23,12 +21,18 @@ import {
 } from "@/lib/chain";
 import { formatPremium, jupBuyLink, truncateAddress } from "@/lib/format";
 import { STAKE_SOL, dailyPrompt, type Mode, type Prompt, type PublicCard } from "@/lib/game";
+import { freshBlockhash, prefetchBlockhash } from "@/lib/blockhash-cache";
 import { sfx } from "@/lib/sounds";
 
 const WalletMultiButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((mod) => mod.WalletMultiButton),
   { ssr: false },
 );
+const DeskPanel = dynamic(() => import("@/components/desk-panel").then((mod) => mod.DeskPanel));
+const PremiumSpotlight = dynamic(() => import("@/components/premium-spotlight").then((mod) => mod.PremiumSpotlight));
+const DailyLeaderboard = dynamic(() => import("@/components/daily-leaderboard").then((mod) => mod.DailyLeaderboard));
+const DailyShare = dynamic(() => import("@/components/daily-share").then((mod) => mod.DailyShare));
+const SessionRecap = dynamic(() => import("@/components/session-recap").then((mod) => mod.SessionRecap));
 
 type Deal = {
   cards: PublicCard[];
@@ -104,6 +108,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
   const [roundLog, setRoundLog] = useState<RoundLog[]>([]);
   const [dailyMeta, setDailyMeta] = useState<DailyMeta | null>(null);
   const [dailyCache, setDailyCache] = useState<{ points: number; symbol: string; premium: number } | null>(null);
+  const [stuckVersus, setStuckVersus] = useState(false);
   const flipCount = useRef(0);
   const resultFx = useRef(false);
 
@@ -133,6 +138,15 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
   }, [isDaily]);
 
   useEffect(() => {
+    if (!connected) return;
+    prefetchBlockhash(connection);
+  }, [connected, connection]);
+
+  useEffect(() => {
+    if (phase === "hand" && connected) prefetchBlockhash(connection);
+  }, [phase, connected, connection]);
+
+  useEffect(() => {
     if (!reveal) {
       flipCount.current = 0;
       return;
@@ -148,7 +162,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
             return next;
           });
         }
-      }, 120 + index * 180);
+      }, 50 + index * 85);
     });
     return () => {
       cancel = true;
@@ -203,6 +217,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
       setDeal(next);
       setNonce(BigInt(crypto.getRandomValues(new Uint32Array(1))[0]) + BigInt(Date.now()));
       setPhase("hand");
+      prefetchBlockhash(connection);
       sfx.deal();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deal failed");
@@ -212,7 +227,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
 
   async function submit(tx: Transaction): Promise<string> {
     if (!publicKey || !signTransaction) throw new Error("Connect a wallet that can sign.");
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    const { blockhash, lastValidBlockHeight } = await freshBlockhash(connection);
     tx.feePayer = publicKey;
     tx.recentBlockhash = blockhash;
     const signed = await signTransaction(tx);
@@ -263,7 +278,10 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
         });
         if (!deskResponse.ok) {
           const deskBody = (await deskResponse.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(deskBody?.error ?? "The desk could not lock.");
+          setStuckVersus(true);
+          setPhase("hand");
+          setError(deskBody?.error ?? "Desk did not lock. Refund stake below.");
+          return;
         }
       }
       setStep(2);
@@ -289,7 +307,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
         reason: body.deskReason,
         deskPick: body.deskPick,
       });
-      await sleep(900);
+      await sleep(420);
       setStep(3);
       sfx.step();
 
@@ -330,6 +348,16 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
       setPhase("result");
 
       const picked = body.cards[chosen];
+      void fetch(`/api/quote?mint=${picked.mint}`)
+        .then((quoteResponse) => quoteResponse.json())
+        .then((quoteBody: { link?: string; quote?: string | null }) => {
+          setQuote({
+            href: quoteBody.link ?? jupBuyLink(picked.mint),
+            detail: quoteBody.quote ? `1 USDC ≈ ${quoteBody.quote} ${picked.symbol}` : "Mainnet Jupiter page",
+          });
+        })
+        .catch(() => undefined);
+
       const dayKey = deal.day ?? dailyMeta?.day;
       if (isDaily && publicKey && dayKey) {
         const scoreResponse = await fetch("/api/daily/score", {
@@ -350,15 +378,21 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
         writeDailyCache(dayKey, cache);
         setDailyCache(cache);
       }
-      const quoteResponse = await fetch(`/api/quote?mint=${picked.mint}`);
-      const quoteBody = (await quoteResponse.json()) as { link?: string; quote?: string | null };
-      setQuote({
-        href: quoteBody.link ?? jupBuyLink(picked.mint),
-        detail: quoteBody.quote ? `1 USDC ≈ ${quoteBody.quote} ${picked.symbol}` : "Mainnet Jupiter page",
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "The round failed");
       setPhase(deal ? "hand" : "lobby");
+    }
+  }
+
+  async function refundVersusStake() {
+    if (!publicKey || nonce === null) return;
+    setError(null);
+    try {
+      await submit(new Transaction().add(cancelVersusIx(publicKey, nonce)));
+      setStuckVersus(false);
+      resetHand();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Refund failed");
     }
   }
 
@@ -368,6 +402,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
     setReveal(null);
     setResult(null);
     setPick(null);
+    setStuckVersus(false);
     setFlipped([false, false, false, false]);
   }
 
@@ -502,6 +537,19 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
 
         {error && <p className="mt-4 text-sm text-danger">{error}</p>}
 
+        {stuckVersus && deal?.mode === "versus" && phase === "hand" && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={refundVersusStake}
+              className="press h-11 rounded-full border border-line px-5 text-sm"
+            >
+              Refund stake
+            </button>
+            <p className="text-xs text-muted">Desk never locked — closes the round on devnet.</p>
+          </div>
+        )}
+
         {phase === "lobby" && sessionDone && roundLog.length > 0 && (
           <SessionRecap log={roundLog} total={roundLog.reduce((sum, row) => sum + row.points, 0)} onNewSession={newSession} />
         )}
@@ -537,7 +585,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
         {phase === "dealing" && (
           <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4" aria-hidden>
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="rise min-h-[15.5rem] animate-pulse rounded-xl bg-background/80" style={{ animationDelay: `${index * 70}ms` }} />
+              <div key={index} className="rise min-h-[15.5rem] animate-pulse rounded-xl bg-background/80" style={{ animationDelay: `${index * 45}ms` }} />
             ))}
           </div>
         )}
