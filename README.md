@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Connect a **devnet** wallet and airdrop SOL. For **Versus**, fund the desk pubkey (created on first deal in `keys/desk.json`, gitignored).
+Open playfade.vercel.app. Connect a **devnet** wallet and airdrop SOL. For **Versus**, fund the desk pubkey .
 
 Optional: `JUPITER_API_KEY` in `web/.env.local` for in-app quotes after settle; otherwise the UI links to [jup.ag](https://jup.ag).
 
