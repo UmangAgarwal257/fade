@@ -3,6 +3,7 @@ import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import { openSeal } from "@/lib/seal";
 import { deskKeypair } from "@/lib/desk";
 import { lockDeskIx } from "@/lib/chain";
+import { deskPickFromAgent } from "@/lib/clawpump";
 
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 
@@ -14,6 +15,16 @@ export async function POST(request: Request) {
   }
   const hand = openSeal(body.seal);
   if (hand.mode !== "versus") return NextResponse.json({ error: "Solo round" }, { status: 400 });
+
+  const symbols = hand.cards.map((card) => card.symbol);
+  let agentPick;
+  try {
+    agentPick = await deskPickFromAgent(symbols, hand.prompt);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Agent pick failed";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
+
   const balance = await connection.getBalance(desk.publicKey);
   if (balance < 60_000_000) {
     return NextResponse.json(
@@ -21,7 +32,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const ix = lockDeskIx(desk.publicKey, new PublicKey(body.player), BigInt(body.nonce), hand.deskPick);
+  const ix = lockDeskIx(desk.publicKey, new PublicKey(body.player), BigInt(body.nonce), agentPick.index);
   const tx = new Transaction().add(ix);
   tx.feePayer = desk.publicKey;
   tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
@@ -34,10 +45,14 @@ export async function POST(request: Request) {
     const message = err instanceof Error ? err.message : "Desk lock failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  const agentUrl = process.env.CLAWPUMP_TOKEN_URL?.trim() || null;
   return NextResponse.json({
     signature,
-    pick: hand.deskPick,
-    reason: hand.deskReason,
+    pick: agentPick.index,
+    reason: agentPick.reason,
     desk: desk.publicKey.toBase58(),
+    source: agentPick.source,
+    agentUrl,
   });
 }

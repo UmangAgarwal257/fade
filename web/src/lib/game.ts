@@ -3,6 +3,8 @@ import { sha256 } from "@noble/hashes/sha2.js";
 export const PROGRAM_ID = "86WQKVP5aG8EWaMQQhFbcKcfhAq4NyQJj43SG29UeNZm";
 export const STAKE_SOL = 0.05;
 export const SCALE = 100_000_000;
+/** Matches on-chain `UNSET_PICK` — versus desk chooses after player lock. */
+export const UNSET_DESK_PICK = 255;
 
 export type Prompt = "cheapest" | "richest";
 export type Mode = "solo" | "versus";
@@ -143,7 +145,10 @@ export function dealHand(stocks: Stock[], seen: string[], prompt: Prompt, mode: 
     cards.push(extra);
   }
   const symbols = cards.map((card) => card.symbol);
-  const desk = deskChoice(symbols, prompt);
+  const desk =
+    mode === "versus"
+      ? { index: UNSET_DESK_PICK, reason: "" }
+      : deskChoice(symbols, prompt);
   return {
     cards,
     prompt,

@@ -109,6 +109,9 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
   const [dailyMeta, setDailyMeta] = useState<DailyMeta | null>(null);
   const [dailyCache, setDailyCache] = useState<{ points: number; symbol: string; premium: number } | null>(null);
   const [stuckVersus, setStuckVersus] = useState(false);
+  const [deskAgent, setDeskAgent] = useState<{ source: "clawpump" | "rules"; agentUrl: string | null } | null>(
+    null,
+  );
   const flipCount = useRef(0);
   const resultFx = useRef(false);
 
@@ -270,19 +273,30 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
       setStep(1);
       sfx.step();
 
+      let deskReasonForReveal: string | undefined;
       if (deal.mode === "versus") {
         const deskResponse = await fetch("/api/desk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ seal: deal.seal, player: publicKey.toBase58(), nonce: nonce.toString() }),
         });
+        const deskBody = (await deskResponse.json().catch(() => null)) as {
+          error?: string;
+          reason?: string;
+          source?: "clawpump" | "rules";
+          agentUrl?: string | null;
+        } | null;
         if (!deskResponse.ok) {
-          const deskBody = (await deskResponse.json().catch(() => null)) as { error?: string } | null;
           setStuckVersus(true);
           setPhase("hand");
           setError(deskBody?.error ?? "Desk did not lock. Refund stake below.");
           return;
         }
+        deskReasonForReveal = deskBody?.reason;
+        setDeskAgent({
+          source: deskBody?.source ?? "rules",
+          agentUrl: deskBody?.agentUrl ?? null,
+        });
       }
       setStep(2);
       sfx.step();
@@ -290,7 +304,17 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
       const revealed = await fetch("/api/reveal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seal: deal.seal, pick: chosen }),
+        body: JSON.stringify({
+          seal: deal.seal,
+          pick: chosen,
+          ...(deal.mode === "versus"
+            ? {
+                player: publicKey.toBase58(),
+                nonce: nonce.toString(),
+                deskReason: deskReasonForReveal,
+              }
+            : {}),
+        }),
       });
       if (!revealed.ok) throw new Error("Reveal failed");
       const body = (await revealed.json()) as {
@@ -403,6 +427,7 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
     setResult(null);
     setPick(null);
     setStuckVersus(false);
+    setDeskAgent(null);
     setFlipped([false, false, false, false]);
   }
 
@@ -693,6 +718,8 @@ export function Play({ variant = "session" }: { variant?: PlayVariant }) {
         reason={result?.reason ?? null}
         deskPick={deskSymbol}
         step={step}
+        agentSource={deskAgent?.source ?? null}
+        agentUrl={deskAgent?.agentUrl ?? null}
       />
       </div>
 

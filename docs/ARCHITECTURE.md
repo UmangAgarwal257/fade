@@ -54,9 +54,9 @@ The four mints must be unique and must be one of the eight PreStocks mints hardc
 
 Native SOL. No USDC. Solo always returns the player's stake because the points are the result. Versus moves lamports to the desk before the round account closes, so a desk win does not also send the player's rent to the desk.
 
-## Why the desk cannot see prices
+## Versus desk
 
-`lock_desk` is signed by a server key. The pick function ranks symbols only: OpenAI, Anthropic, SpaceX, then the quieter names, inverted when the prompt is cheapest. The price fields are not arguments to that function.
+After the player’s `lock_pick` confirms, `/api/desk` asks the **Fade Desk** ClawPump agent (symbols + prompt only) for a JSON pick, then signs `lock_desk` with the game escrow key. Reveal reads `desk_pick` from the round account on devnet. Without `CLAWPUMP_API_KEY` and `CLAWPUMP_AGENT_ID`, the server falls back to the rule-based `deskChoice` in `game.ts`.
 
 ## Web
 
